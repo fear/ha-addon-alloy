@@ -1,0 +1,59 @@
+#!/usr/bin/with-contenv bash
+# Erzeugt die Alloy-Konfiguration aus den App-Optionen (gleiche Labels wie Rolle alloy im Repo felix/ansible)
+set -e
+OPT=/data/options.json
+LOKI_URL=$(jq -r '.loki_url' "$OPT")
+HOST_LABEL=$(jq -r '.host_label // "ha"' "$OPT")
+MAX_ALTER=$(jq -r '.journal_max_alter // "12h"' "$OPT")
+JOURNAL=/var/log/journal
+if [ ! -d "$JOURNAL" ] || [ -z "$(ls -A "$JOURNAL" 2>/dev/null)" ]; then JOURNAL=/run/log/journal; fi
+mkdir -p /etc/alloy /data/alloy
+cat > /etc/alloy/config.alloy <<ALLOY
+logging {
+  level = "warn"
+}
+
+loki.write "loki" {
+  endpoint {
+    url = "${LOKI_URL}"
+  }
+  external_labels = { host = "${HOST_LABEL}" }
+}
+
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+  rule {
+    source_labels = ["unit"]
+    regex         = "(session|run|docker|libpod)-.+\\\\.scope"
+    target_label  = "unit"
+    replacement   = "\$1.scope"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "level"
+  }
+  rule {
+    source_labels = ["__journal_syslog_identifier"]
+    target_label  = "ident"
+  }
+  // Apps (addon_*) und HA Core laufen als Container: Name als Label
+  rule {
+    source_labels = ["__journal_container_name"]
+    target_label  = "container"
+  }
+}
+
+loki.source.journal "journal" {
+  path          = "${JOURNAL}"
+  max_age       = "${MAX_ALTER}"
+  relabel_rules = loki.relabel.journal.rules
+  labels        = { job = "journal" }
+  forward_to    = [loki.write.loki.receiver]
+}
+ALLOY
+echo "Homelab Alloy: Journal ${JOURNAL} → ${LOKI_URL} (host=${HOST_LABEL})"

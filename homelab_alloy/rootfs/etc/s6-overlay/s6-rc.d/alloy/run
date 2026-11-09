@@ -1,0 +1,4 @@
+#!/usr/bin/with-contenv bash
+# UI/Metriken nur lokal im Container (kein Port nach außen), keine Nutzungsstatistik
+exec /usr/bin/alloy run --disable-reporting --server.http.listen-addr=127.0.0.1:12345 \
+    --storage.path=/data/alloy /etc/alloy/config.alloy

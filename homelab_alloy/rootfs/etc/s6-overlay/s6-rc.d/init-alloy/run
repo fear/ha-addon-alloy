@@ -78,7 +78,7 @@ loki.process "level" {
     stage.regex { expression = "^\\d{4}-\\d\\d-\\d\\d[ T][0-9:.,+-]+ (?P<lvl>DEBUG|INFO|WARNING|ERROR|CRITICAL) " }
     stage.template {
       source   = "lvl"
-      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
+      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if eq $l \"trace\" }}debug{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
     }
     stage.labels { values = { level = "lvl" } }
   }
@@ -88,7 +88,7 @@ loki.process "level" {
     stage.regex { expression = "^\\S+ \\[[A-Z_]+\\] (?P<lvl>DEBUG|INFO|WARN|ERROR):" }
     stage.template {
       source   = "lvl"
-      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
+      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if eq $l \"trace\" }}debug{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
     }
     stage.labels { values = { level = "lvl" } }
   }
@@ -98,7 +98,7 @@ loki.process "level" {
     stage.regex { expression = "^(?P<lvl>DEBUG|INFO|WARNING|ERROR|CRITICAL):\\S" }
     stage.template {
       source   = "lvl"
-      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
+      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if eq $l \"trace\" }}debug{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
     }
     stage.labels { values = { level = "lvl" } }
   }
@@ -108,7 +108,27 @@ loki.process "level" {
     stage.regex { expression = "^\\[[0-9 :.-]+\\] (?P<lvl>debug|info|warning|warn|error):" }
     stage.template {
       source   = "lvl"
-      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
+      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if eq $l \"trace\" }}debug{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
+    }
+    stage.labels { values = { level = "lvl" } }
+  }
+  // bashio (viele Community-Apps): „[21:22:19] INFO: …“
+  stage.match {
+    selector = "{container=~\".+\"} |~ \"^[[][0-9:]+[]] (TRACE|DEBUG|INFO|NOTICE|WARNING|WARN|ERROR|FATAL):\""
+    stage.regex { expression = "^\\[[0-9:]+\\] (?P<lvl>TRACE|DEBUG|INFO|NOTICE|WARNING|WARN|ERROR|FATAL):" }
+    stage.template {
+      source   = "lvl"
+      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if eq $l \"trace\" }}debug{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
+    }
+    stage.labels { values = { level = "lvl" } }
+  }
+  // s6-Overlay beim Start jeder App: „s6-rc: info: service … starting“
+  stage.match {
+    selector = "{container=~\".+\"} |~ \"^s6-rc: (info|warning|error|fatal):\""
+    stage.regex { expression = "^s6-rc: (?P<lvl>info|warning|error|fatal):" }
+    stage.template {
+      source   = "lvl"
+      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if eq $l \"trace\" }}debug{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
     }
     stage.labels { values = { level = "lvl" } }
   }
@@ -118,7 +138,7 @@ loki.process "level" {
     stage.regex { expression = "level=(?P<lvl>debug|info|warn|warning|error|fatal|crit)( |$)" }
     stage.template {
       source   = "lvl"
-      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
+      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if eq $l \"trace\" }}debug{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
     }
     stage.labels { values = { level = "lvl" } }
   }

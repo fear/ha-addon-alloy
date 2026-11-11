@@ -53,7 +53,75 @@ loki.source.journal "journal" {
   max_age       = "${MAX_ALTER}"
   relabel_rules = loki.relabel.journal.rules
   labels        = { job = "journal" }
-  forward_to    = [loki.write.loki.receiver]
+  forward_to    = [loki.process.level.receiver]
 }
 ALLOY
+# Level-Erkennung ohne Shell-Ersetzung anhängen (Regex mit Backslashes und $)
+cat >> /etc/alloy/config.alloy <<'LEVEL'
+
+// Level aus dem Zeileninhalt der Container (HA Core, Supervisor, Apps): stderr meldet journald pauschal
+// als „err“. Erkannte Muster überschreiben das Label level; ohne Muster bleibt es wie von journald.
+loki.process "level" {
+  forward_to = [loki.write.loki.receiver]
+
+  // ANSI-Farbcodes entfernen (HA Core, Kuma, Supervisor färben ihre Ausgabe)
+  stage.match {
+    selector = "{container=~\".+\"}"
+    stage.replace {
+      expression = "(\\x1b\\[[0-9;]*m)"
+      replace    = ""
+    }
+  }
+  // HA Core, Supervisor, ESPHome: „2026-11-11 20:01:55.868+01:00 INFO (MainThread) …“
+  stage.match {
+    selector = "{container=~\".+\"} |~ \"^[0-9]{4}-[0-9]{2}-[0-9]{2}[ T][0-9:.,+-]+ (DEBUG|INFO|WARNING|ERROR|CRITICAL) \""
+    stage.regex { expression = "^\\d{4}-\\d\\d-\\d\\d[ T][0-9:.,+-]+ (?P<lvl>DEBUG|INFO|WARNING|ERROR|CRITICAL) " }
+    stage.template {
+      source   = "lvl"
+      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
+    }
+    stage.labels { values = { level = "lvl" } }
+  }
+  // Uptime Kuma: „2026-11-11T20:30:53+01:00 [DOMAIN_EXPIRY] WARN: …“
+  stage.match {
+    selector = "{container=~\".+\"} |~ \"^[^ ]+ [[][A-Z_]+[]] (DEBUG|INFO|WARN|ERROR):\""
+    stage.regex { expression = "^\\S+ \\[[A-Z_]+\\] (?P<lvl>DEBUG|INFO|WARN|ERROR):" }
+    stage.template {
+      source   = "lvl"
+      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
+    }
+    stage.labels { values = { level = "lvl" } }
+  }
+  // Python-Logging ohne Zeit (ha-mcp): „INFO:httpx:HTTP Request …“
+  stage.match {
+    selector = "{container=~\".+\"} |~ \"^(DEBUG|INFO|WARNING|ERROR|CRITICAL):[^ ]\""
+    stage.regex { expression = "^(?P<lvl>DEBUG|INFO|WARNING|ERROR|CRITICAL):\\S" }
+    stage.template {
+      source   = "lvl"
+      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
+    }
+    stage.labels { values = { level = "lvl" } }
+  }
+  // Zigbee2MQTT u. a.: „[2026-11-11 08:28:15] warning: …“
+  stage.match {
+    selector = "{container=~\".+\"} |~ \"^[[][0-9 :.-]+[]] (debug|info|warning|warn|error):\""
+    stage.regex { expression = "^\\[[0-9 :.-]+\\] (?P<lvl>debug|info|warning|warn|error):" }
+    stage.template {
+      source   = "lvl"
+      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
+    }
+    stage.labels { values = { level = "lvl" } }
+  }
+  // logfmt (Go-Programme): „… level=info …“
+  stage.match {
+    selector = "{container=~\".+\"} |~ \"level=(debug|info|warn|warning|error|fatal|crit)( |$)\""
+    stage.regex { expression = "level=(?P<lvl>debug|info|warn|warning|error|fatal|crit)( |$)" }
+    stage.template {
+      source   = "lvl"
+      template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else if or (eq $l \"critical\") (eq $l \"fatal\") }}crit{{ else }}{{ $l }}{{ end }}"
+    }
+    stage.labels { values = { level = "lvl" } }
+  }
+}
+LEVEL
 echo "Homelab Alloy: Journal ${JOURNAL} → ${LOKI_URL} (host=${HOST_LABEL})"

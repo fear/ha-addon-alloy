@@ -1,6 +1,6 @@
 # Homelab-Apps für Home Assistant
 
-Quelle: Gitea `felix/ha-addon-alloy` (intern), gespiegelt nach GitHub, damit der HA-Supervisor das Repository
+Quelle: Gitea `homelab/ha-addon-alloy` (intern), gespiegelt nach GitHub, damit der HA-Supervisor das Repository
 ohne Anmeldung und mit gültigem Zertifikat laden kann. Keine Geheimnisse im Repo (nur Konfiguration und das
 öffentliche Root-Zertifikat der Heim-CA).
 

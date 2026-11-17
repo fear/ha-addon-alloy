@@ -1,7 +1,7 @@
 # Lokale HA-App: HAOS-Journal (Core, Supervisor, Apps) → Loki auf loki.arnold.home
 # Abgeleitet von github.com/ecohash-co/ha-addon-alloy (MIT), angepasst: Label host=ha wie alle Hosts,
 # TLS mit step-ca-Root, UI nur 127.0.0.1 (kein Port), Alloy per SHA256 geprüft.
-# Einbinden: HA → Apps → Store → ⋮ → Repositories → GitHub-URL dieses Repos (Spiegel von Gitea felix/ha-addon-alloy).
+# Einbinden: HA → Apps → Store → ⋮ → Repositories → GitHub-URL dieses Repos (Spiegel von Gitea homelab/ha-addon-alloy).
 name: Homelab Alloy
 version: "1.21.3-3"
 slug: homelab_alloy

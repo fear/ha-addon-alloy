@@ -64,6 +64,13 @@ cat >> /etc/alloy/config.alloy <<'LEVEL'
 loki.process "level" {
   forward_to = [loki.write.loki.receiver]
 
+  // Geheimnisse vor Loki maskieren (QS 39): Webhook-ID (App „Webhook Proxy for HA MCP“) und privater Pfad
+  // (App „HA MCP Server“, jede Anfrage). Ersetzt wird nur die Gruppe: „api/webhook/mcp_***“, „/private_***“.
+  stage.replace {
+    expression = "(?:api/webhook/mcp_|/private_)([A-Za-z0-9_-]+)"
+    replace    = "***"
+  }
+
   // ANSI-Farbcodes entfernen (HA Core, Kuma, Supervisor färben ihre Ausgabe)
   stage.match {
     selector = "{container=~\".+\"}"
